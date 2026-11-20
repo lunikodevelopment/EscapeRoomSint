@@ -104,7 +104,7 @@ const CONFIG = {
   levels: [
     {
       nr: 1, kort: 'ROUTEPLANNER',
-      intro: ["De GPS van Piet is gewist. Elk dak precies één keer, nooit op een schotelantenne, en eindigen bij José's schoorsteen."],
+      intro: ["De GPS van Piet is gewist. Tik op elk dak precies één keer, nooit op een schotelantenne, en eindig bij José's schoorsteen."],
       instructie: 'Tik een aangrenzend dak. Tik het laatste dak om terug te gaan.',
       start: 'A1', eind: 'B1', antennes: ['B2', 'C2'],
       oplossing: ['A1', 'A2', 'A3', 'A4', 'B4', 'B3', 'C3', 'C4', 'D4', 'D3', 'D2', 'D1', 'C1', 'B1'],
