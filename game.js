@@ -17,6 +17,26 @@ const CONFIG = {
   // Hints bij het raadsel; de derde hint is de verstopplek hierboven.
   raadselHints: ['SGV0IGlzIHZsYWsgYmlqIGRlIHZvb3JkZXVyLg==', 'S2lqayB3YWFyIGRlIGphc3NlbiBoYW5nZW4u'],
 
+  // Achtergrondmuziek: happy-hardcore-remix (172 BPM) van "Sinterklaas kapoentje" (traditioneel).
+  // Melodie: [noot, duur in tellen]; origineel in 3/4 = 16 maten x 3 tellen = 48 tellen,
+  // gespeeld boven een 4/4-beat (48 tellen = 12 maten). Akkoorden: per originele maat (3 tellen).
+  muziek: {
+    bpm: 172,
+    tellenPerMaat: 3,
+    melodie: [
+      ['G4', 2], ['G4', 1], ['A4', 2], ['A4', 1], ['G4', 3], ['E4', 3],
+      ['G4', 2], ['G4', 1], ['A4', 2], ['A4', 1], ['G4', 3], ['E4', 3],
+      ['F4', 2], ['F4', 1], ['F4', 2], ['D4', 1], ['F4', 3], ['F4', 3],
+      ['A4', 2], ['G4', 1], ['F4', 2], ['E4', 1], ['D4', 3], ['C4', 3]
+    ],
+    akkoorden: [
+      ['C2', 'C4', 'E4', 'G4'], ['F2', 'F4', 'A4', 'C5'], ['C2', 'C4', 'E4', 'G4'], ['C2', 'C4', 'E4', 'G4'],
+      ['C2', 'C4', 'E4', 'G4'], ['F2', 'F4', 'A4', 'C5'], ['C2', 'C4', 'E4', 'G4'], ['C2', 'C4', 'E4', 'G4'],
+      ['D2', 'D4', 'F4', 'A4'], ['D2', 'D4', 'F4', 'A4'], ['D2', 'D4', 'F4', 'A4'], ['D2', 'D4', 'F4', 'A4'],
+      ['F2', 'F4', 'A4', 'C5'], ['D2', 'D4', 'F4', 'A4'], ['F2', 'F4', 'A4', 'C5'], ['C2', 'C4', 'E4', 'G4']
+    ]
+  },
+
   teksten: {
     tikStart: 'TIK OM TE STARTEN',
     foutmelding: 'FOUT 5-12: GROTE BOEK NIET GEVONDEN',
@@ -445,7 +465,87 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     fout() { this.toon(140, 0.12); this.toon(110, 0.18, 'square', 0.12); },
     clear() { this.reeks([[523, .1], [659, .1], [784, .1], [1047, .25], [0, .05], [784, .1], [1047, .3]]); },
     kluis() { this.reeks([[392, .12], [523, .12], [659, .12], [784, .12], [659, .12], [784, .12], [1047, .5]], 'triangle'); this.reeks([[196, .36], [262, .36], [392, .6]], 'square'); },
-    knop(i) { this.toon([262, 330, 392, 523][i], 0.28, i % 2 ? 'triangle' : 'square', 0, 0.06); }
+    knop(i) { this.toon([262, 330, 392, 523][i], 0.28, i % 2 ? 'triangle' : 'square', 0, 0.06); },
+
+    // ---- Achtergrondmuziek (loop): happy hardcore, 172 BPM ----
+    mTimer: null, mBus: null, mVolgende: 0, mTel: 0, mRuis: null, mLead: null,
+    freq(naam) {
+      const m = /^([A-G])(\d)$/.exec(naam);
+      const semi = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[m[1]];
+      return 440 * Math.pow(2, (semi + 12 * (Number(m[2]) + 1) - 69) / 12);
+    },
+    muziekSchakel(aan) {
+      if (aan && ST.geluid && !document.hidden) this.muziekStart(); else this.muziekStop();
+    },
+    muziekStart() {
+      if (this.mTimer) return;
+      const c = this.zorg(); if (!c) return;
+      if (!this.mRuis) {
+        this.mRuis = c.createBuffer(1, Math.floor(c.sampleRate * 0.3), c.sampleRate);
+        const d = this.mRuis.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      }
+      if (!this.mLead) { // welke melodienoot klinkt op welke tel
+        this.mLead = [];
+        for (const [noot, dur] of CONFIG.muziek.melodie) for (let i = 0; i < dur; i++) this.mLead.push(this.freq(noot) * 2);
+      }
+      this.mBus = c.createGain(); this.mBus.gain.value = 0.7; this.mBus.connect(c.destination);
+      this.mVolgende = c.currentTime + 0.15; this.mTel = 0;
+      this.mTimer = setInterval(() => this.muziekPlan(), 100);
+      this.muziekPlan();
+    },
+    muziekStop() {
+      if (!this.mTimer) return;
+      clearInterval(this.mTimer); this.mTimer = null;
+      try { this.mBus.disconnect(); } catch (e) { /* ok */ }
+      this.mBus = null;
+    },
+    muziekPlan() {
+      const c = this.ctx; if (!c || !this.mBus) return;
+      if (c.state !== 'running') { this.mVolgende = Math.max(this.mVolgende, c.currentTime + 0.15); return; }
+      const tel = 60 / CONFIG.muziek.bpm, totaal = this.mLead.length;
+      while (this.mVolgende < c.currentTime + 0.6) {
+        this.muziekTel(this.mTel, this.mVolgende, tel);
+        this.mVolgende += tel; this.mTel = (this.mTel + 1) % totaal;
+      }
+    },
+    // Eén tel: kick, offbeat-bas, hi-hats, snare, 16e-arpeggio en een pompende lead.
+    muziekTel(n, t, tel) {
+      const M = CONFIG.muziek, akk = M.akkoorden[Math.floor(n / M.tellenPerMaat) % M.akkoorden.length];
+      this.mKick(t);
+      if (n % 4 === 1 || n % 4 === 3) this.mSnare(t);
+      this.mHat(t + tel / 2, 0.045, 0.11);          // open hat op de offbeat
+      this.mHat(t + tel / 4, 0.02, 0.03);           // 16e
+      this.mHat(t + tel * 0.75, 0.02, 0.03);
+      this.mNoot(this.freq(akk[0]) * 2, t + tel / 2, tel * 0.46, 'sawtooth', 0.07, 0.3); // rollende bas op de offbeat
+      const arp = [akk[1], akk[2], akk[3], akk[2]];
+      for (let j = 0; j < 4; j++) this.mNoot(this.freq(arp[j]), t + j * tel / 4, tel / 4 * 0.8, 'triangle', 0.05, 1);
+      const f = this.mLead[n];
+      for (const det of [-7, 7]) this.mNoot(f, t, tel * 0.97, 'square', 0.017, 0.2, det, tel * 0.55);
+    },
+    mNoot(f, t, duur, type, vol, start, det, aanloop) {
+      const c = this.ctx, o = c.createOscillator(), g = c.createGain();
+      o.type = type; o.frequency.setValueAtTime(f, t); if (det) o.detune.value = det;
+      g.gain.setValueAtTime(vol * start, t);
+      if (start < 1) g.gain.linearRampToValueAtTime(vol, t + (aanloop || duur * 0.5));
+      g.gain.setValueAtTime(vol, t + duur * 0.9); g.gain.linearRampToValueAtTime(0, t + duur);
+      o.connect(g); g.connect(this.mBus);
+      o.start(t); o.stop(t + duur + 0.02);
+    },
+    mKick(t) {
+      const c = this.ctx, o = c.createOscillator(), g = c.createGain();
+      o.type = 'sine'; o.frequency.setValueAtTime(170, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.12);
+      g.gain.setValueAtTime(0.32, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+      o.connect(g); g.connect(this.mBus); o.start(t); o.stop(t + 0.2);
+    },
+    mRuisBron(t, duur, filter, freq, vol) {
+      const c = this.ctx, src = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+      src.buffer = this.mRuis; f.type = filter; f.frequency.value = freq;
+      g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + duur);
+      src.connect(f); f.connect(g); g.connect(this.mBus); src.start(t); src.stop(t + duur + 0.02);
+    },
+    mHat(t, vol, duur) { this.mRuisBron(t, duur, 'highpass', 7500, vol); },
+    mSnare(t) { this.mRuisBron(t, 0.13, 'bandpass', 1900, 0.16); }
   };
 
   /* ---------- Basiselementen ---------- */
@@ -598,6 +698,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     stage.className = 'stage ' + (scherm.cls || '');
     stage.scrollTop = 0;
     scherm.teken();
+    GELUID.muziekSchakel(!scherm.zonderMuziek);
     if (scherm.start) scherm.start();
   }
   function hertekenen() { berekenSchaal(); if (HUIDIG) { tekenTopbar(); tekenInventaris(); HUIDIG.teken(); } }
@@ -998,7 +1099,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
   function schermLevel4() {
     const lv = CONFIG.levels[3], tx = lv.teksten;
     const sc = {
-      titel: 'LEVEL 4', hints: lv.hints, hintNr: 0,
+      titel: 'LEVEL 4', hints: lv.hints, hintNr: 0, zonderMuziek: true,
       lengte: lv.beginLengte, invoer: [], speelt: true, traag: false, knipperHulp: false, klaar: false, status: tx.kijk,
       teken() {
         const K = S * 2;
@@ -1202,7 +1303,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
   function schermOnthulling(animatie) {
     const o = CONFIG.onthulling;
     const sc = {
-      chrome: 'top', titel: 'YOU WIN!', cls: 'onthulling-stage', fase: animatie && !RM() ? 0 : 3, hintNr: 0,
+      chrome: 'top', titel: 'YOU WIN!', cls: 'onthulling-stage', fase: animatie && !RM() ? 0 : 3, hintNr: 0, zonderMuziek: !!(animatie && !RM()),
       teken() {
         const raadsel = decodeer(CONFIG.raadsel).split('\n');
         const hints = CONFIG.raadselHints.map(decodeer).concat([decodeer(CONFIG.verstopplek)]);
@@ -1239,6 +1340,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
         if (!sc.actief) return;
         sc.fase = 3; sc.teken();
         confetti(50);
+        sc.zonderMuziek = false; GELUID.muziekSchakel(true);
       }
     };
     return sc;
@@ -1268,6 +1370,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
   function wisselGeluid() {
     ST.geluid = !ST.geluid; bewaar();
     if (ST.geluid) { GELUID.zorg(); GELUID.blip(); }
+    GELUID.muziekSchakel(ST.geluid && !(HUIDIG && HUIDIG.zonderMuziek));
     tekenTopbar();
     toast(ST.geluid ? '♪ Geluid aan' : 'Geluid uit');
   }
@@ -1311,6 +1414,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     }
     let rt;
     window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { const oudS = S, oudW = APPW; berekenSchaal(); if (S !== oudS || APPW !== oudW) hertekenen(); }, 150); });
+    document.addEventListener('visibilitychange', () => GELUID.muziekSchakel(!document.hidden && !(HUIDIG && HUIDIG.zonderMuziek)));
     document.documentElement.classList.add('klaar');
     ga(ST.finale ? schermOnthulling(false) : schermTitel());
   }

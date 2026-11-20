@@ -59,6 +59,13 @@ ok(LOGIC.fRouteGeldig(r, rt), 'route geldig (woorden in volgorde, eindigt bij kl
 ok(!LOGIC.fStap(['A1', 'A2', 'B2', 'B3'], 'C3', rt).ok, 'te vroeg naar ZAK wordt geweigerd');
 ok(!LOGIC.fStap(['A1', 'A2'], 'A3', rt).ok, 'kruisvakje wordt geweigerd');
 
+console.log('Muziek');
+const M = CONFIG.muziek;
+const som = (st) => st.reduce((a, n) => a + n[1], 0);
+ok(M.bpm === 172, '172 BPM');
+ok(som(M.melodie) === 48 && M.akkoorden.length === 16 && M.tellenPerMaat * M.akkoorden.length === 48, 'melodie en akkoorden: 16 maten van 3 tellen = 48 tellen (12 maten 4/4, sluit netjes af)');
+ok([...M.melodie.map(n => n[0]), ...M.akkoorden.flat()].every(n => /^[A-G]\d$/.test(n)), 'alle noten geldig');
+
 console.log('Geheimen');
 ok(decodeer(CONFIG.slotcode1) === '482' && decodeer(CONFIG.slotcode2) === '739', 'codes decoderen correct');
 ok(decodeer(CONFIG.verstopplek) === 'In de hal, tussen de jassen en tassen.', 'verstopplek decodeert correct');
