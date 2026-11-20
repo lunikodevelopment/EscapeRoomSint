@@ -23,6 +23,8 @@ const CONFIG = {
   muziek: {
     bpm: 172,
     tellenPerMaat: 3,
+    // Relatieve luidheid: de originele melodie is het luidst, alles eromheen zachter.
+    volume: { melodie: 0.05, vul: 0.026, kick: 0.15, snare: 0.065, hatOpen: 0.02, hatDicht: 0.011, bas: 0.032, arp: 0.016 },
     melodie: [
       ['G4', 2], ['G4', 1], ['A4', 2], ['A4', 1], ['G4', 3], ['E4', 3],
       ['G4', 2], ['G4', 1], ['A4', 2], ['A4', 1], ['G4', 3], ['E4', 3],
@@ -468,7 +470,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     knop(i) { this.toon([262, 330, 392, 523][i], 0.28, i % 2 ? 'triangle' : 'square', 0, 0.06); },
 
     // ---- Achtergrondmuziek (loop): happy hardcore, 172 BPM ----
-    mTimer: null, mBus: null, mVolgende: 0, mTel: 0, mRuis: null, mLead: null,
+    mTimer: null, mBus: null, mVolgende: 0, mTel: 0, mRuis: null, mLead: null, mGraad: null,
     freq(naam) {
       const m = /^([A-G])(\d)$/.exec(naam);
       const semi = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[m[1]];
@@ -487,7 +489,11 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
       }
       if (!this.mLead) { // welke melodienoot klinkt op welke tel
         this.mLead = [];
-        for (const [noot, dur] of CONFIG.muziek.melodie) for (let i = 0; i < dur; i++) this.mLead.push(this.freq(noot) * 2);
+        this.mGraad = [];
+        for (const [noot, dur] of CONFIG.muziek.melodie) {
+          const g = ['C', 'D', 'E', 'F', 'G', 'A', 'B'].indexOf(noot[0]) + 7 * (Number(noot[1]) - 4);
+          for (let i = 0; i < dur; i++) { this.mLead.push(this.freq(noot) * 2); this.mGraad.push(g); }
+        }
       }
       this.mBus = c.createGain(); this.mBus.gain.value = 0.7; this.mBus.connect(c.destination);
       this.mVolgende = c.currentTime + 0.15; this.mTel = 0;
@@ -509,19 +515,29 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
         this.mVolgende += tel; this.mTel = (this.mTel + 1) % totaal;
       }
     },
-    // Eén tel: kick, offbeat-bas, hi-hats, snare, 16e-arpeggio en een pompende lead.
+    // Eén tel. De originele melodienoot is het luidst; daartussen volgen snelle 16e-nootjes
+    // (stapjes naar de volgende noot). Beat, bas en arpeggio blijven bewust zachter.
     muziekTel(n, t, tel) {
-      const M = CONFIG.muziek, akk = M.akkoorden[Math.floor(n / M.tellenPerMaat) % M.akkoorden.length];
-      this.mKick(t);
-      if (n % 4 === 1 || n % 4 === 3) this.mSnare(t);
-      this.mHat(t + tel / 2, 0.045, 0.11);          // open hat op de offbeat
-      this.mHat(t + tel / 4, 0.02, 0.03);           // 16e
-      this.mHat(t + tel * 0.75, 0.02, 0.03);
-      this.mNoot(this.freq(akk[0]) * 2, t + tel / 2, tel * 0.46, 'sawtooth', 0.07, 0.3); // rollende bas op de offbeat
+      const M = CONFIG.muziek, V = M.volume, akk = M.akkoorden[Math.floor(n / M.tellenPerMaat) % M.akkoorden.length];
+      this.mKick(t, V.kick);
+      if (n % 4 === 1 || n % 4 === 3) this.mSnare(t, V.snare);
+      this.mHat(t + tel / 2, V.hatOpen, 0.11);      // open hat op de offbeat
+      this.mHat(t + tel / 4, V.hatDicht, 0.03);     // 16e
+      this.mHat(t + tel * 0.75, V.hatDicht, 0.03);
+      this.mNoot(this.freq(akk[0]) * 2, t + tel / 2, tel * 0.46, 'sawtooth', V.bas, 0.3); // rollende bas op de offbeat
       const arp = [akk[1], akk[2], akk[3], akk[2]];
-      for (let j = 0; j < 4; j++) this.mNoot(this.freq(arp[j]), t + j * tel / 4, tel / 4 * 0.8, 'triangle', 0.05, 1);
-      const f = this.mLead[n];
-      for (const det of [-7, 7]) this.mNoot(f, t, tel * 0.97, 'square', 0.017, 0.2, det, tel * 0.55);
+      for (let j = 0; j < 4; j++) this.mNoot(this.freq(arp[j]), t + j * tel / 4, tel / 4 * 0.8, 'triangle', V.arp, 1);
+      // originele noot (twee lichtjes verstemde blokgolven)
+      for (const det of [-7, 7]) this.mNoot(this.mLead[n], t, tel * 0.5, 'square', V.melodie, 1, det);
+      // snelle tussennootjes richting de volgende originele noot
+      const cur = this.mGraad[n], volg = this.mGraad[(n + 1) % this.mGraad.length];
+      const dir = volg === cur ? 1 : Math.sign(volg - cur), ver = Math.abs(volg - cur);
+      const vul = [cur + dir, ver >= 2 ? cur + 2 * dir : cur];
+      vul.forEach((g, j) => this.mNoot(this.graadFreq(g), t + tel * (0.5 + 0.25 * j), tel * 0.22, 'square', V.vul, 1));
+    },
+    graadFreq(g) { // diatonische toonladder C-groot, g=0 is C4, resultaat een octaaf hoger (zoals de lead)
+      const toon = [0, 2, 4, 5, 7, 9, 11][((g % 7) + 7) % 7] + 12 * Math.floor(g / 7);
+      return 261.6256 * Math.pow(2, (toon + 12) / 12);
     },
     mNoot(f, t, duur, type, vol, start, det, aanloop) {
       const c = this.ctx, o = c.createOscillator(), g = c.createGain();
@@ -532,10 +548,10 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
       o.connect(g); g.connect(this.mBus);
       o.start(t); o.stop(t + duur + 0.02);
     },
-    mKick(t) {
+    mKick(t, vol) {
       const c = this.ctx, o = c.createOscillator(), g = c.createGain();
       o.type = 'sine'; o.frequency.setValueAtTime(170, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.12);
-      g.gain.setValueAtTime(0.32, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+      g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
       o.connect(g); g.connect(this.mBus); o.start(t); o.stop(t + 0.2);
     },
     mRuisBron(t, duur, filter, freq, vol) {
@@ -545,7 +561,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
       src.connect(f); f.connect(g); g.connect(this.mBus); src.start(t); src.stop(t + duur + 0.02);
     },
     mHat(t, vol, duur) { this.mRuisBron(t, duur, 'highpass', 7500, vol); },
-    mSnare(t) { this.mRuisBron(t, 0.13, 'bandpass', 1900, 0.16); }
+    mSnare(t, vol) { this.mRuisBron(t, 0.13, 'bandpass', 1900, vol); }
   };
 
   /* ---------- Basiselementen ---------- */
