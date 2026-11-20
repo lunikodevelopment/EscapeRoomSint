@@ -90,6 +90,45 @@ ok(LOGIC.fRouteGeldig(r, rt), 'route geldig (woorden in volgorde, eindigt bij kl
 ok(!LOGIC.fStap(['A1', 'A2', 'B2', 'B3'], 'C3', rt).ok, 'te vroeg naar ZAK wordt geweigerd');
 ok(!LOGIC.fStap(['A1', 'A2'], 'A3', rt).ok, 'kruisvakje wordt geweigerd');
 
+console.log('Willekeurige uitslagen (400 potjes met vaste zaadjes)');
+{
+  const mulberry = (a) => () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  let slecht = { l1: 0, l3: 0, l4: 0, f: 0 };
+  const uniek = { l1: new Set(), l3: new Set(), l4: new Set(), f: new Set() };
+  const l3cfg = CONFIG.levels[2];
+  for (let seed = 1; seed <= 400; seed++) {
+    const rng = mulberry(seed);
+    // Level 1
+    const g1 = LOGIC.l1Genereer(l1, rng); const lv1 = Object.assign({}, l1, g1);
+    let rt1 = [lv1.start], ok1 = new Set(g1.antennes).size === 2 && !g1.antennes.includes(lv1.start) && !g1.antennes.includes(lv1.eind);
+    for (const v of g1.oplossing.slice(1)) { if (!LOGIC.l1Stap(rt1, v, lv1).ok) ok1 = false; rt1.push(v); }
+    if (!ok1 || !LOGIC.l1RouteGeldig(rt1, lv1)) slecht.l1++;
+    uniek.l1.add(g1.antennes.slice().sort().join('+'));
+    // Level 3
+    const g3 = LOGIC.l3Genereer(l3cfg.stukken, rng);
+    const z = [0, 1, 2, 3].map(() => [null, null, null, null]); let ok3 = true;
+    for (let c = 0; c < 4; c++) z[g3.irij][c] = 'I';
+    for (const id of ['O', 'L1', 'L2']) { const [rr, cc, rot] = g3.oplossing[id]; const a = LOGIC.l3Plaats(z, LOGIC.vorm(l3cfg.stukken.find(x => x.id === id), rot), rr, cc); if (!a) ok3 = false; else for (const [x, y] of a) z[x][y] = id; }
+    if (!ok3 || !LOGIC.l3ZakVol(z)) slecht.l3++;
+    uniek.l3.add(g3.irij + JSON.stringify(g3.oplossing));
+    // Level 4
+    const r4 = LOGIC.l4Genereer(5, rng);
+    if (r4.length !== 5 || new Set(r4).size < 3 || r4.some((v, i) => i >= 2 && r4[i - 1] === v && r4[i - 2] === v)) slecht.l4++;
+    uniek.l4.add(r4.join(''));
+    // Finale-route
+    const rf = LOGIC.fGenereer(CONFIG.finale.route, rng);
+    let rr = [rf.start], okf = rf.geblokt.length === 4 && rf.volgorde.length === 4 && new Set(rf.volgorde).size === 4 && rf.volgorde.every(v => !rf.geblokt.includes(v));
+    for (const v of rf.oplossing.slice(1)) { if (!LOGIC.fStap(rr, v, rf).ok) okf = false; rr.push(v); }
+    if (!okf || !LOGIC.fRouteGeldig(rr, rf) || rf.oplossing.indexOf(rf.volgorde[1]) < 1) slecht.f++;
+    uniek.f.add(rf.oplossing.join('') + rf.geblokt.slice().sort().join(''));
+  }
+  ok(slecht.l1 === 0, `level 1: alle 400 willekeurige potjes oplosbaar (${uniek.l1.size} verschillende antenne-paren)`);
+  ok(slecht.l3 === 0, `level 3: alle 400 indelingen vullen de zak precies (${uniek.l3.size} verschillende indelingen)`);
+  ok(slecht.l4 === 0, `level 4: alle reeksen geldig (${uniek.l4.size} verschillende reeksen)`);
+  ok(slecht.f === 0, `finale: alle 400 routes oplosbaar met woorden in gedicht-volgorde (${uniek.f.size} verschillende routes)`);
+  ok(uniek.l1.size >= 15 && uniek.l3.size >= 6 && uniek.l4.size >= 50 && uniek.f.size >= 100, 'er is echt variatie');
+}
+
 console.log('Muziek');
 const M = CONFIG.muziek;
 const som = (st) => st.reduce((a, n) => a + n[1], 0);

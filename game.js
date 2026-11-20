@@ -318,6 +318,110 @@ const LOGIC = {
   },
   l3ZakVol(zak) { return zak.every(rij => rij.every(Boolean)); },
 
+  // ---- Willekeurige (maar altijd oplosbare) uitslagen per potje ----
+  mix(a, rng = Math.random) { const b = a.slice(); for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; },
+  buurIds(id) {
+    const [r, c] = LOGIC.rc(id), uit = [];
+    for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) { const a = r + dr, b = c + dc; if (a >= 0 && a < 4 && b >= 0 && b < 4) uit.push(LOGIC.id(a, b)); }
+    return uit;
+  },
+  // Level 1: kies twee willekeurige schotelantennes waarbij een route over alle andere daken bestaat.
+  l1Zoek(start, eind, antennes, rng = Math.random) {
+    const totaal = 16 - antennes.length;
+    const dfs = (pad) => {
+      const nu = pad[pad.length - 1];
+      if (pad.length === totaal) return nu === eind ? pad : null;
+      if (nu === eind) return null;
+      for (const nb of LOGIC.mix(LOGIC.buurIds(nu), rng)) {
+        if (antennes.includes(nb) || pad.includes(nb)) continue;
+        const r = dfs(pad.concat(nb)); if (r) return r;
+      }
+      return null;
+    };
+    return dfs([start]);
+  },
+  l1Genereer(lv, rng = Math.random) {
+    const alle = []; for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) alle.push(LOGIC.id(r, c));
+    const kand = alle.filter(x => x !== lv.start && x !== lv.eind);
+    for (let i = 0; i < 300; i++) {
+      const antennes = LOGIC.mix(kand, rng).slice(0, 2);
+      const oplossing = LOGIC.l1Zoek(lv.start, lv.eind, antennes, rng);
+      if (oplossing) return { antennes, oplossing };
+    }
+    return { antennes: lv.antennes.slice(), oplossing: lv.oplossing.slice() };
+  },
+  // Level 3: het lange pakket ligt op de bovenste of onderste rij; de rest wordt willekeurig ingedeeld.
+  l3Genereer(stukken, rng = Math.random) {
+    const mijn = ['O', 'L1', 'L2'].map(id => stukken.find(x => x.id === id));
+    const opties = [];
+    for (const irij of [0, 3]) {
+      const zak = [0, 1, 2, 3].map(() => [null, null, null, null]);
+      for (let c = 0; c < 4; c++) zak[irij][c] = 'I';
+      const pl = {};
+      const dfs = (rest) => {
+        let r = -1, c = -1;
+        outer: for (let a = 0; a < 4; a++) for (let b = 0; b < 4; b++) if (!zak[a][b]) { r = a; c = b; break outer; }
+        if (r < 0) { if (!rest.length) opties.push({ irij, oplossing: JSON.parse(JSON.stringify(pl)) }); return; }
+        for (const st of rest) {
+          const gezien = new Set();
+          for (let rot = 0; rot < 4; rot++) {
+            const vorm = LOGIC.vorm(st, rot), sl = JSON.stringify(vorm);
+            if (gezien.has(sl)) continue; gezien.add(sl);
+            const o = [r - vorm[0][0], c - vorm[0][1]], abs = LOGIC.l3Plaats(zak, vorm, o[0], o[1]);
+            if (!abs) continue;
+            for (const [a, b] of abs) zak[a][b] = st.id;
+            pl[st.id] = [o[0], o[1], rot];
+            dfs(rest.filter(x => x !== st));
+            for (const [a, b] of abs) zak[a][b] = null;
+            delete pl[st.id];
+          }
+        }
+      };
+      dfs(mijn);
+    }
+    return opties[Math.floor(rng() * opties.length)];
+  },
+  // Level 4: willekeurige reeks van 5, niet saai (geen drie dezelfde achter elkaar, minstens drie verschillende knoppen).
+  l4Genereer(lengte = 5, rng = Math.random) {
+    for (;;) {
+      const r = []; for (let i = 0; i < lengte; i++) r.push(Math.floor(rng() * 4));
+      const drie = r.some((v, i) => i >= 2 && r[i - 1] === v && r[i - 2] === v);
+      if (!drie && new Set(r).size >= 3) return r;
+    }
+  },
+  // Finale-route: willekeurige route van Sint naar de kluis met de vier woorden onderweg in
+  // gedicht-volgorde, en willekeurig geplaatste ✗-vakjes (mijter, mijter, stoomboot, paard) naast de route.
+  fGenereer(basis, rng = Math.random) {
+    const f = Object.assign({}, basis);
+    for (let poging = 0; poging < 500; poging++) {
+      let pad = null;
+      const dfs = (p) => {
+        const nu = p[p.length - 1];
+        if (nu === f.eind) return p.length >= 8 ? p : null;
+        if (p.length >= 12) return null;
+        for (const nb of LOGIC.mix(LOGIC.buurIds(nu), rng)) {
+          if (p.includes(nb)) continue;
+          const r = dfs(p.concat(nb)); if (r) return r;
+        }
+        return null;
+      };
+      pad = dfs([f.start]);
+      if (!pad) continue;
+      const binnen = pad.slice(1, -1);
+      const idx = LOGIC.mix(binnen.map((_, i) => i), rng).slice(0, 4).sort((a, b) => a - b);
+      const woorden = idx.map(i => binnen[i]);
+      const vrij = [];
+      for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) { const id = LOGIC.id(r, c); if (!pad.includes(id)) vrij.push(id); }
+      if (vrij.length < 4) continue;
+      const kruisen = LOGIC.mix(vrij, rng).slice(0, 4), soorten = LOGIC.mix(['mijter', 'mijter', 'stoomboot', 'paard'], rng);
+      const vakjes = { [f.start]: 'sint', [f.eind]: 'kluis' };
+      woorden.forEach((w, i) => { vakjes[w] = 'item' + i; });
+      kruisen.forEach((k, i) => { vakjes[k] = soorten[i]; });
+      return Object.assign(f, { geblokt: kruisen, volgorde: woorden, vakjes, oplossing: pad });
+    }
+    return f;
+  },
+
   // ---- Level 4: ritme ----
   // 'fout' | 'verder' | 'rond'
   l4Tik(reeks, lengte, invoer) {
@@ -908,7 +1012,8 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
 
   /* ---------------- LEVEL 1: ROUTEPLANNER ---------------- */
   function schermLevel1() {
-    const lv = CONFIG.levels[0];
+    const lv = Object.assign({}, CONFIG.levels[0]);
+    Object.assign(lv, LOGIC.l1Genereer(lv));
     const sc = {
       titel: 'LEVEL 1', hints: lv.hints, hintNr: 0,
       route: [lv.start], klaar: false,
@@ -1047,7 +1152,8 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
 
   /* ---------------- LEVEL 3: PAKJESZAK ---------------- */
   function schermLevel3() {
-    const lv = CONFIG.levels[2], tx = lv.teksten;
+    const lv = Object.assign({}, CONFIG.levels[2]), tx = lv.teksten;
+    Object.assign(lv, LOGIC.l3Genereer(lv.stukken));
     const leegZak = () => [0, 1, 2, 3].map(() => [null, null, null, null]);
     const sc = {
       titel: 'LEVEL 3', hints: lv.hints, hintNr: 0,
@@ -1117,7 +1223,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     }
     function reset() {
       sc.zak = leegZak(); sc.geplaatst = {}; sc.gekozen = null; sc.draaiing = { O: 0, L1: 0, L2: 0 };
-      const I = lv.stukken[0]; plaats(I.id, I.vast[0], I.vast[1]);
+      const I = lv.stukken[0]; plaats(I.id, lv.irij, 0);
     }
     reset();
     function kiesStuk(id) { if (sc.klaar) return; GELUID.blip(); sc.gekozen = sc.gekozen === id ? null : id; sc.teken(); }
@@ -1200,7 +1306,8 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
 
   /* ---------------- LEVEL 4: PIETENRITME ---------------- */
   function schermLevel4() {
-    const lv = CONFIG.levels[3], tx = lv.teksten;
+    const lv = Object.assign({}, CONFIG.levels[3]), tx = lv.teksten;
+    lv.reeks = LOGIC.l4Genereer(CONFIG.levels[3].reeks.length);
     const sc = {
       titel: 'LEVEL 4', hints: lv.hints, hintNr: 0, zonderMuziek: true,
       lengte: lv.beginLengte, invoer: [], speelt: true, traag: false, knipperHulp: false, klaar: false, status: tx.kijk,
@@ -1274,10 +1381,10 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
 
   /* ---------------- EINDBAAS: DE GROTE HERSTART ---------------- */
   function schermFinale(stapForce) {
-    const f = CONFIG.finale, rt = f.route;
+    const f = CONFIG.finale, rt = LOGIC.fGenereer(f.route);
     const sc = {
       titel: 'EINDBAAS', stap: stapForce || (ST.gedicht ? 2 : 1),
-      ingevuld: [null, null, null, null], gekozen: null, route: [rt.start], klaar: false, hintNr: 0,
+      ingevuld: [null, null, null, null], gekozen: null, route: [rt.start], klaar: false, hintNr: 0, kaarten: LOGIC.mix(f.kaarten),
       get hints() { return sc.stap === 1 ? f.gedichtHints : rt.hints; },
       get chrome() { return sc.stap === 1 ? 'top' : 'vol'; },
       teken() {
@@ -1296,7 +1403,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
           const i = sc.ingevuld.findIndex(x => !x);
           if (i >= 0) sc.ingevuld[i] = f.gedicht[i].woord;
           if (LOGIC.gedichtKlaar(sc.ingevuld)) setTimeout(gedichtAf, 300);
-        } else sc.route = rt.oplossing.slice(0, 5);
+        } else sc.route = rt.oplossing.slice(0, rt.oplossing.indexOf(rt.volgorde[1]) + 1);
       },
       overslaan() {
         if (sc.stap === 1) { sc.ingevuld = f.gedicht.map(g => g.woord); sc.teken(); gedichtAf(); }
@@ -1314,7 +1421,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
         h('p', null, f.slot[0], h('br'), f.slot[1]));
       stage.replaceChildren(h('div', { class: 'level finale1' },
         perkament(gedicht, 1, 'perk-gedicht'),
-        h('div', { class: 'kaarten' }, f.kaarten.map(w => h('button', {
+        h('div', { class: 'kaarten' }, sc.kaarten.map(w => h('button', {
           class: 'kaart-woord' + (sc.gekozen === w ? ' gekozen' : '') + (gebruikt(w) ? ' gebruikt' : ''), type: 'button', 'data-w': w,
           disabled: gebruikt(w), onclick: () => { GELUID.blip(); sc.gekozen = sc.gekozen === w ? null : w; sc.teken(); }
         }, w))),
