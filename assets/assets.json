@@ -1,0 +1,261 @@
+{
+  "schema_version": 1,
+  "coordinate_system": {
+    "origin": "top-left",
+    "x_direction": "right",
+    "y_direction": "down",
+    "units": "pixels"
+  },
+  "palette": {
+    "K": "#3A0508",
+    "N": "#0B1226",
+    "R": "#B3121F",
+    "r": "#7A0C14",
+    "G": "#D4A437",
+    "g": "#F3D27A",
+    "W": "#FFF8EC",
+    "B": "#9A5B2E",
+    "b": "#6B3A1A",
+    "M": "#F2A7B8",
+    "S": "#8A8F98",
+    "s": "#C9CDD3",
+    "U": "#14213D",
+    "u": "#22355E",
+    "Y": "#FFE680"
+  },
+  "assets": [
+    {
+      "name": "pepernoot-heel.png",
+      "width": 16,
+      "height": 16,
+      "is_sprite_sheet": false,
+      "cell_size": null
+    },
+    {
+      "name": "pepernoot-nep.png",
+      "width": 16,
+      "height": 16,
+      "is_sprite_sheet": false,
+      "cell_size": null
+    },
+    {
+      "name": "confetti-pepernoot.png",
+      "width": 8,
+      "height": 8,
+      "is_sprite_sheet": false,
+      "cell_size": null
+    },
+    {
+      "name": "avatar-bits.png",
+      "width": 32,
+      "height": 32,
+      "is_sprite_sheet": false,
+      "cell_size": null
+    },
+    {
+      "name": "icoon-stoomboot.png",
+      "width": 32,
+      "height": 32,
+      "is_sprite_sheet": false,
+      "cell_size": null
+    },
+    {
+      "name": "items-set.png",
+      "width": 64,
+      "height": 64,
+      "is_sprite_sheet": true,
+      "cell_size": {
+        "width": 32,
+        "height": 32
+      },
+      "grid": {
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "name": "daken-set.png",
+      "width": 64,
+      "height": 64,
+      "is_sprite_sheet": true,
+      "cell_size": {
+        "width": 32,
+        "height": 32
+      },
+      "grid": {
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "name": "balans.png",
+      "width": 64,
+      "height": 64,
+      "is_sprite_sheet": false,
+      "cell_size": null
+    },
+    {
+      "name": "pakjes-set.png",
+      "width": 128,
+      "height": 128,
+      "is_sprite_sheet": true,
+      "cell_size": {
+        "width": 64,
+        "height": 64
+      },
+      "grid": {
+        "columns": 2,
+        "rows": 2
+      },
+      "cell_alignment": "top-left"
+    },
+    {
+      "name": "pakjeszak.png",
+      "width": 64,
+      "height": 64,
+      "is_sprite_sheet": false,
+      "cell_size": null
+    },
+    {
+      "name": "ritme-knoppen.png",
+      "width": 64,
+      "height": 64,
+      "is_sprite_sheet": true,
+      "cell_size": {
+        "width": 32,
+        "height": 32
+      },
+      "grid": {
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "name": "divider-pepernoten.png",
+      "width": 96,
+      "height": 12,
+      "is_sprite_sheet": false,
+      "cell_size": null
+    },
+    {
+      "name": "bg-cadeaupapier.png",
+      "width": 32,
+      "height": 32,
+      "is_sprite_sheet": false,
+      "cell_size": null
+    },
+    {
+      "name": "perkament.png",
+      "width": 96,
+      "height": 128,
+      "is_sprite_sheet": false,
+      "cell_size": null,
+      "text_safe_rect": {
+        "x": 16,
+        "y": 18,
+        "width": 64,
+        "height": 84
+      }
+    },
+    {
+      "name": "kluis-dicht.png",
+      "width": 64,
+      "height": 64,
+      "is_sprite_sheet": false,
+      "cell_size": null
+    },
+    {
+      "name": "kluis-open.png",
+      "width": 64,
+      "height": 64,
+      "is_sprite_sheet": false,
+      "cell_size": null
+    },
+    {
+      "name": "titel-skyline.png",
+      "width": 180,
+      "height": 320,
+      "is_sprite_sheet": false,
+      "cell_size": null
+    },
+    {
+      "name": "levelkaart.png",
+      "width": 180,
+      "height": 320,
+      "is_sprite_sheet": false,
+      "cell_size": null,
+      "locations": [
+        {
+          "id": 1,
+          "name": "daken",
+          "center": {
+            "x": 52,
+            "y": 280
+          },
+          "bounds": {
+            "x": 36,
+            "y": 264,
+            "width": 32,
+            "height": 32
+          }
+        },
+        {
+          "id": 2,
+          "name": "bakkerij",
+          "center": {
+            "x": 128,
+            "y": 220
+          },
+          "bounds": {
+            "x": 112,
+            "y": 204,
+            "width": 32,
+            "height": 32
+          }
+        },
+        {
+          "id": 3,
+          "name": "stoomboot",
+          "center": {
+            "x": 52,
+            "y": 160
+          },
+          "bounds": {
+            "x": 36,
+            "y": 144,
+            "width": 32,
+            "height": 32
+          }
+        },
+        {
+          "id": 4,
+          "name": "trommelhuis",
+          "center": {
+            "x": 128,
+            "y": 100
+          },
+          "bounds": {
+            "x": 112,
+            "y": 84,
+            "width": 32,
+            "height": 32
+          }
+        },
+        {
+          "id": 5,
+          "name": "kluis",
+          "center": {
+            "x": 52,
+            "y": 40
+          },
+          "bounds": {
+            "x": 36,
+            "y": 24,
+            "width": 32,
+            "height": 32
+          }
+        }
+      ]
+    }
+  ]
+}

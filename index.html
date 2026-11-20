@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#14213D">
+  <title>Het Grote Boek is Gecrasht</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <header id="topbar" hidden>
+      <button id="menu-knop" class="ikoon-knop" type="button" aria-label="Menu"></button>
+      <div id="titel" class="topbar-titel"></div>
+      <button id="hint-knop" class="ikoon-knop" type="button" aria-label="Hint van Bits"></button>
+      <button id="geluid-knop" class="ikoon-knop" type="button" aria-label="Geluid aanzetten"></button>
+    </header>
+    <div id="inventaris" class="inventaris" hidden aria-label="Inventaris"></div>
+    <div id="divider" class="divider" hidden></div>
+    <main id="stage" class="stage">
+      <p class="laden">Laden…</p>
+    </main>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <div id="dialoog" class="dialoog-laag" hidden>
+      <div class="dialoog kader">
+        <div id="dlg-avatar" class="dlg-avatar"></div>
+        <div class="dlg-body">
+          <div id="dlg-naam" class="dlg-naam"></div>
+          <p id="dlg-tekst" class="dlg-tekst" aria-live="polite"></p>
+        </div>
+        <div id="dlg-pijl" class="dlg-pijl knipper" hidden></div>
+      </div>
+    </div>
+    <div id="overlays"></div>
+  </div>
+  <div id="confetti" class="confetti" aria-hidden="true"></div>
+  <noscript><p style="color:#fff;padding:16px">Zet JavaScript aan om het spel te spelen.</p></noscript>
+  <script src="game.js"></script>
+</body>
+</html>
