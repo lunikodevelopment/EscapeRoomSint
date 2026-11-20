@@ -33,19 +33,27 @@ for (const id of ['O', 'L1', 'L2']) { const [rr, cc, rot] = l3.oplossing[id]; ze
 ok(LOGIC.l3ZakVol(zak), 'zak helemaal vol');
 const verwacht = { O: [[1,0],[1,1],[2,0],[2,1]], L1: [[3,0],[3,1],[3,2],[2,2]], L2: [[1,2],[1,3],[2,3],[3,3]] };
 for (const id in verwacht) ok(verwacht[id].every(([a, b]) => zak[a][b] === id), `${id} ligt precies zoals in de opdracht`);
-// Aantikken op het bovenste linkerblokje van het pakje moet dezelfde plaatsing geven als de oplossing.
+// Elk vakje van een pakje in de oplossing aantikken moet de oplossing als mogelijkheid geven (ook bij L's met leeg hoekje).
 {
   const zak2 = [0, 1, 2, 3].map(() => [null, null, null, null]);
   for (let i = 0; i < 4; i++) zak2[0][i] = 'I';
   for (const id of ['O', 'L1', 'L2']) {
     const [rr, cc, rot] = l3.oplossing[id]; const st = l3.stukken.find(x => x.id === id);
     const v = LOGIC.vorm(st, rot);
-    const [tr, tc] = [rr + v[0][0], cc + v[0][1]]; // het vakje dat de speler aantikt
-    const [or, oc] = LOGIC.l3Origin(v, tr, tc);
-    ok(or === rr && oc === cc && !!LOGIC.l3Plaats(zak2, v, or, oc), `${id}: tik op rij ${tr + 1} kolom ${tc + 1} (bovenste linkerblokje) plaatst hem goed`);
-    for (const [a, b] of LOGIC.l3Plaats(zak2, v, or, oc)) zak2[a][b] = id;
+    const alles = v.every(([a, b]) => LOGIC.l3Kandidaten(zak2, v, rr + a, cc + b).some(o => o[0] === rr && o[1] === cc));
+    ok(alles, `${id}: elk blokje van de oplossing aantikken geeft de goede plek als mogelijkheid`);
+    for (const [a, b] of LOGIC.l3Plaats(zak2, v, rr, cc)) zak2[a][b] = id;
   }
-  ok(LOGIC.l3ZakVol(zak2), 'zak vol via aantik-methode');
+  ok(LOGIC.l3ZakVol(zak2), 'zak vol');
+  // Vegen: de cellen van de oplossing (in willekeurige volgorde) moeten herkend worden met de juiste draaiing.
+  for (const id of ['O', 'L1', 'L2']) {
+    const [rr, cc, rot] = l3.oplossing[id]; const st = l3.stukken.find(x => x.id === id);
+    const cellen = LOGIC.vorm(st, rot).map(([a, b]) => [a + rr, b + cc]).reverse();
+    const m = LOGIC.l3VeegMatch(st, cellen);
+    ok(m && m.rot === rot && m.r === rr && m.c === cc, `${id}: vegen over de juiste vakjes wordt herkend (draaiing ${rot})`);
+  }
+  const fout = LOGIC.l3VeegMatch(l3.stukken[2], [[1, 2], [1, 3], [2, 3], [2, 2]]);
+  ok(fout === null, 'veeg over een vierkant is geen L');
 }
 ok(JSON.stringify(LOGIC.vorm(l3.stukken[2], 4)) === JSON.stringify(LOGIC.vorm(l3.stukken[2], 0)), '4× draaien = origineel');
 

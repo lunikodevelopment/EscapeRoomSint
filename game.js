@@ -46,14 +46,14 @@ const CONFIG = {
     intro: [
       'Hallo José?! Hier Bits van de Sint-helpdesk.',
       "Sinterklaas wilde dit jaar 'helemaal digitaal'. Hij heeft het Grote Boek op een laptop gezet.",
-      'Amerigo is erop gaan liggen. Nu is ALLES gecrasht. Ook de kluis met jouw cadeau.',
+      'Ozosnel is erop gaan liggen. Nu is ALLES gecrasht. Ook de kluis met jouw cadeau.',
       'Help je ons de vier modules te repareren?'
     ],
     brief: {
       titel: 'Beste José,',
       regels: [
         'Ik ben 700 jaar en snap niets van wifi.',
-        'Ik dacht: zet ik het Grote Boek op de computer, dan hoef ik nooit meer te bladeren. Toen ging Amerigo erop liggen. Het paard is in orde, het boek niet.',
+        'Ik dacht: zet ik het Grote Boek op de computer, dan hoef ik nooit meer te bladeren. Toen ging Ozosnel erop liggen. Het paard is in orde, het boek niet.',
         'Wil jij de Pieten helpen? Ik reken op je!',
         'Hartelijke groet, Sinterklaas',
         'P.S. Wat is een wachtwoord? Is dat iets met paarden?'
@@ -65,10 +65,10 @@ const CONFIG = {
     bitsLost: 'Bits, los jij het maar op',
     levelClear: 'LEVEL CLEAR!',
     fout: [
-      'Bijna! Amerigo hinnikt aanmoedigend.',
+      'Bijna! Ozosnel hinnikt aanmoedigend.',
       'Oeps! Bits verslikt zich in een pepernoot.',
       'Net niet! Ergens zucht een Piet heel zachtjes.',
-      'De computer zegt nee. Amerigo zegt: nog een keer!'
+      'De computer zegt nee. Ozosnel zegt: nog een keer!'
     ],
     overslaan: ['Oké, oké… *tikt heel snel met tien vingers* …GELUKT! Niet tegen Sint zeggen.'],
     naLevel4: [
@@ -135,7 +135,7 @@ const CONFIG = {
     {
       nr: 3, kort: 'LAADRUIM',
       intro: ['Alles moet in de zak. Geen gaten, anders krijgt Sint hem niet dicht.'],
-      instructie: 'Tik een pakje (evt. DRAAI). Tik dan het vakje waar het bovenste linkerblokje van het pakje heen moet.',
+      instructie: 'Tik een pakje en veeg over de vakjes in de zak waar het heen moet.',
       stukken: [
         { id: 'I', label: 'fiets', vast: [0, 0], cellen: [[0, 0], [0, 1], [0, 2], [0, 3]], sprite: { x: 0, y: 0, w: 64, h: 16 } },
         { id: 'O', label: 'boeken', cellen: [[0, 0], [0, 1], [1, 0], [1, 1]], sprite: { x: 64, y: 0, w: 32, h: 32 } },
@@ -145,7 +145,7 @@ const CONFIG = {
       // oplossing: [rij, kolom] van de linkerbovenhoek, draaiing 0
       oplossing: { O: [1, 0, 0], L1: [2, 0, 0], L2: [1, 2, 0] },
       hints: ['Begin met het lastigste pakje.', 'Het boekenpakket hoort in een hoek.', 'Kijk, ik leg er eentje goed voor je.'],
-      teksten: { knopDraai: 'DRAAI', past: 'Dat past niet. Probeer een ander vakje of DRAAI.', kies: 'Tik eerst een pakje onder de zak.' },
+      teksten: { knopDraai: 'DRAAI', veegFout: 'Veeg precies over de vakjes die het pakje vult, zonder gaten of extra vakjes.', past: 'Dat past niet. Probeer een ander vakje of DRAAI.', kies: 'Tik eerst een pakje onder de zak.' },
       beloning: ['De zak is dicht, met een gouden strik! Sint is zo blij dat hij een dansje doet. Hier is je ZAK.']
     },
     {
@@ -286,9 +286,25 @@ const LOGIC = {
     }
     return abs;
   },
-  // Het pakje hangt aan zijn bovenste linkerblokje (eerste gevulde vakje, van boven naar onder),
-  // niet aan de hoek van het omhullende vierkant: dat kan bij een L een leeg vakje zijn.
-  l3Origin(cellen, r, c) { const [a, b] = cellen[0]; return [r - a, c - b]; },
+  // Tik op een vakje: het pakje komt zó te liggen dat één van zijn eigen blokjes op dat vakje ligt.
+  // Geeft alle mogelijkheden (oorsprong [rij, kolom]) die in de zak passen, in leesvolgorde van de blokjes.
+  l3Kandidaten(zak, cellen, r, c) {
+    const uit = [];
+    for (const [a, b] of cellen) {
+      const o = [r - a, c - b];
+      if (LOGIC.l3Plaats(zak, cellen, o[0], o[1]) && !uit.some(x => x[0] === o[0] && x[1] === o[1])) uit.push(o);
+    }
+    return uit;
+  },
+  // Veegplaatsen: de geveegde vakjes ([rij, kolom]-lijst) moeten precies de vorm van het pakje zijn,
+  // in een van de vier draaiingen. Geeft { rot, r, c } (c/r = oorsprong) of null.
+  l3VeegMatch(stuk, cellen) {
+    const sleutel = (cs) => LOGIC.normaliseer(cs).map(x => x.join(',')).join(';');
+    const doel = sleutel(cellen);
+    const r0 = Math.min(...cellen.map(x => x[0])), c0 = Math.min(...cellen.map(x => x[1]));
+    for (let rot = 0; rot < 4; rot++) if (sleutel(LOGIC.vorm(stuk, rot)) === doel) return { rot, r: r0, c: c0 };
+    return null;
+  },
   l3ZakVol(zak) { return zak.every(rij => rij.every(Boolean)); },
 
   // ---- Level 4: ritme ----
@@ -1036,6 +1052,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
             onclick: () => tikVak(r, c)
           }, id ? h('span', { class: 'pk pk-' + id, style: { left: Z + 'px', top: Z + 'px', width: ZAK_RASTER.vak * Z + 'px', height: ZAK_RASTER.vak * Z + 'px' } }) : null));
         }
+        koppelVeeg(zakEl);
         if (sc.klaar) zakEl.append(h('div', { class: 'zak-dicht' }, spr('items-set.png', { cel: [0, 1], schaal: Z }), pix(ICOON.strik, 'strik')));
         const lade = h('div', { class: 'lade' }, lv.stukken.filter(s => !s.vast && !sc.geplaatst[s.id]).map(s => {
           const rot = sc.draaiing[s.id];
@@ -1098,19 +1115,59 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
       if (!sc.gekozen) { toast(tx.kies); return; }
       sc.draaiing[sc.gekozen] = (sc.draaiing[sc.gekozen] + 1) % 4; sc.teken();
     }
+    function afronden() {
+      sc.gekozen = null; GELUID.blip();
+      if (LOGIC.l3ZakVol(sc.zak)) { sc.klaar = true; sc.teken(); levelGehaald(2); return; }
+      sc.teken();
+    }
+    // Plaatsen door te vegen over de vakjes die het pakje gaat vullen (draaiing wordt vanzelf herkend).
+    function koppelVeeg(zakEl) {
+      let veeg = null;
+      const celBij = (x, y) => { const el = document.elementFromPoint(x, y); const v = el && el.closest ? el.closest('.zak-vak') : null; return v && zakEl.contains(v) ? v : null; };
+      const voegToe = (v) => { const k = v.dataset.rc; if (!veeg.set.has(k)) { veeg.set.set(k, [Number(k[0]), Number(k[1])]); v.classList.add('swipe'); GELUID.tik(); } };
+      zakEl.addEventListener('pointerdown', (e) => {
+        if (!sc.gekozen || sc.klaar || sc.bezig) return;
+        const v = celBij(e.clientX, e.clientY); if (!v) return;
+        veeg = { set: new Map(), x: e.clientX, y: e.clientY }; voegToe(v);
+      });
+      zakEl.addEventListener('pointermove', (e) => {
+        if (!veeg) return;
+        const dx = e.clientX - veeg.x, dy = e.clientY - veeg.y, n = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 6));
+        for (let i = 1; i <= n; i++) { const v = celBij(veeg.x + dx * i / n, veeg.y + dy * i / n); if (v) voegToe(v); }
+        veeg.x = e.clientX; veeg.y = e.clientY;
+      });
+      const klaar = (e) => {
+        if (!veeg) return;
+        const cellen = [...veeg.set.values()]; veeg = null;
+        zakEl.querySelectorAll('.swipe').forEach(v => v.classList.remove('swipe'));
+        if (cellen.length < 2 || e.type === 'pointercancel') return; // één vakje = gewone tik
+        sc.negeerKlik = true; setTimeout(() => { sc.negeerKlik = false; }, 80);
+        if (!sc.gekozen || sc.klaar || sc.bezig) return;
+        const m = LOGIC.l3VeegMatch(stuk(sc.gekozen), cellen);
+        if (!m) { foutje(tx.veegFout); return; }
+        const oud = sc.draaiing[sc.gekozen]; sc.draaiing[sc.gekozen] = m.rot;
+        if (!plaats(sc.gekozen, m.r, m.c)) { sc.draaiing[sc.gekozen] = oud; foutje(tx.past); sc.teken(); return; }
+        afronden();
+      };
+      zakEl.addEventListener('pointerup', klaar);
+      zakEl.addEventListener('pointercancel', klaar);
+    }
     function tikVak(r, c) {
-      if (sc.klaar || sc.bezig) return;
+      if (sc.negeerKlik || sc.klaar || sc.bezig) return;
       const hier = sc.zak[r][c];
       if (!sc.gekozen) {
         if (hier && !stuk(hier).vast) { haalWeg(hier); sc.gekozen = hier; GELUID.blip(); sc.teken(); }
         else toast(tx.kies);
         return;
       }
-      const [r0, c0] = LOGIC.l3Origin(LOGIC.vorm(stuk(sc.gekozen), sc.draaiing[sc.gekozen] || 0), r, c);
-      if (!plaats(sc.gekozen, r0, c0)) { foutje(tx.past); flitsVak(stage.querySelector(`[data-rc="${r}${c}"]`)); return; }
-      sc.gekozen = null; GELUID.blip();
-      if (LOGIC.l3ZakVol(sc.zak)) { sc.klaar = true; sc.teken(); levelGehaald(2); return; }
-      sc.teken();
+      const kand = LOGIC.l3Kandidaten(sc.zak, LOGIC.vorm(stuk(sc.gekozen), sc.draaiing[sc.gekozen] || 0), r, c);
+      if (!kand.length) { foutje(tx.past); flitsVak(stage.querySelector(`[data-rc="${r}${c}"]`)); return; }
+      // Zelfde vakje nog eens tikken (na het pakje weer op te pakken) = volgende mogelijkheid.
+      const L = sc.laatsteTik;
+      const nr = L && L.id === sc.gekozen && L.r === r && L.c === c ? (L.nr + 1) % kand.length : 0;
+      sc.laatsteTik = { id: sc.gekozen, r, c, nr };
+      plaats(sc.gekozen, kand[nr][0], kand[nr][1]);
+      afronden();
     }
     return sc;
   }
