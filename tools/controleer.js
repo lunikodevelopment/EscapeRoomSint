@@ -45,24 +45,6 @@ for (const id in verwacht) ok(verwacht[id].every(([a, b]) => zak[a][b] === id), 
     for (const [a, b] of LOGIC.l3Plaats(zak2, v, rr, cc)) zak2[a][b] = id;
   }
   ok(LOGIC.l3ZakVol(zak2), 'zak vol');
-  // Vegen: precies, met een overbodig vakje (hoekje afgesneden) of een ontbrekend vakje, en niet te slordig.
-  const zakVoor = (tot) => { const z = [0, 1, 2, 3].map(() => [null, null, null, null]); for (let i = 0; i < 4; i++) z[0][i] = 'I'; for (const id of tot) { const [rr, cc, rot] = l3.oplossing[id]; const st = l3.stukken.find(x => x.id === id); for (const [a, b] of LOGIC.l3Plaats(z, LOGIC.vorm(st, rot), rr, cc)) z[a][b] = id; } return z; };
-  const volgorde = ['O', 'L1', 'L2'];
-  volgorde.forEach((id, i) => {
-    const [rr, cc, rot] = l3.oplossing[id]; const st = l3.stukken.find(x => x.id === id);
-    const zak3 = zakVoor(volgorde.slice(0, i));
-    const juist = LOGIC.vorm(st, rot).map(([a, b]) => [a + rr, b + cc]);
-    const goed = (m) => m && m.rot === rot && m.r === rr && m.c === cc;
-    ok(goed(LOGIC.l3VeegBeste(st, zak3, juist.slice().reverse())), `${id}: precies vegen wordt herkend (draaiing ${rot})`);
-    ok(goed(LOGIC.l3VeegBeste(st, zak3, juist.slice(0, 3))), `${id}: één vakje te weinig geveegd wordt herkend`);
-  });
-  {
-    const zak3 = zakVoor(['O', 'L1']); const st = l3.stukken[3]; const [rr, cc, rot] = l3.oplossing.L2;
-    const juist = LOGIC.vorm(st, rot).map(([a, b]) => [a + rr, b + cc]);
-    const m = LOGIC.l3VeegBeste(st, zak3, juist.concat([[1, 1]]));
-    ok(m && m.rot === rot && m.r === rr && m.c === cc, 'L2: één vakje te veel (hoekje afgesneden) wordt herkend');
-  }
-  ok(LOGIC.l3VeegBeste(l3.stukken[1], zakVoor([]), [[1, 0], [2, 3], [3, 3], [1, 2]]) === null, 'rommelige veeg wordt afgewezen');
 }
 ok(JSON.stringify(LOGIC.vorm(l3.stukken[2], 4)) === JSON.stringify(LOGIC.vorm(l3.stukken[2], 0)), '4× draaien = origineel');
 

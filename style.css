@@ -397,8 +397,7 @@ button:focus-visible { outline: 3px dashed var(--geel); outline-offset: 2px; }
 .bak-vak.leeg .noot-nr { color: rgba(255, 248, 236, 0.5); }
 
 /* Level 3: pakjeszak */
-.zak { position: relative; flex: none; touch-action: none; }
-.zak-vak.swipe { background: rgba(255, 230, 128, 0.5); box-shadow: inset 0 0 0 3px var(--geel); }
+.zak { position: relative; flex: none; }
 .zak > .spr { position: absolute; left: 0; top: 0; }
 .zak-vak { position: absolute; padding: 0; border: 0; background: transparent; }
 .zak-vak:active { background: rgba(255, 230, 128, 0.15); }
