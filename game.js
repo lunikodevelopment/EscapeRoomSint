@@ -135,7 +135,7 @@ const CONFIG = {
     {
       nr: 3, kort: 'LAADRUIM',
       intro: ['Alles moet in de zak. Geen gaten, anders krijgt Sint hem niet dicht.'],
-      instructie: 'Tik een pakje (evt. DRAAI), tik dan het vakje linksboven.',
+      instructie: 'Tik een pakje (evt. DRAAI). Tik dan het vakje waar het bovenste linkerblokje van het pakje heen moet.',
       stukken: [
         { id: 'I', label: 'fiets', vast: [0, 0], cellen: [[0, 0], [0, 1], [0, 2], [0, 3]], sprite: { x: 0, y: 0, w: 64, h: 16 } },
         { id: 'O', label: 'boeken', cellen: [[0, 0], [0, 1], [1, 0], [1, 1]], sprite: { x: 64, y: 0, w: 32, h: 32 } },
@@ -286,6 +286,9 @@ const LOGIC = {
     }
     return abs;
   },
+  // Het pakje hangt aan zijn bovenste linkerblokje (eerste gevulde vakje, van boven naar onder),
+  // niet aan de hoek van het omhullende vierkant: dat kan bij een L een leeg vakje zijn.
+  l3Origin(cellen, r, c) { const [a, b] = cellen[0]; return [r - a, c - b]; },
   l3ZakVol(zak) { return zak.every(rij => rij.every(Boolean)); },
 
   // ---- Level 4: ritme ----
@@ -1103,7 +1106,8 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
         else toast(tx.kies);
         return;
       }
-      if (!plaats(sc.gekozen, r, c)) { foutje(tx.past); flitsVak(stage.querySelector(`[data-rc="${r}${c}"]`)); return; }
+      const [r0, c0] = LOGIC.l3Origin(LOGIC.vorm(stuk(sc.gekozen), sc.draaiing[sc.gekozen] || 0), r, c);
+      if (!plaats(sc.gekozen, r0, c0)) { foutje(tx.past); flitsVak(stage.querySelector(`[data-rc="${r}${c}"]`)); return; }
       sc.gekozen = null; GELUID.blip();
       if (LOGIC.l3ZakVol(sc.zak)) { sc.klaar = true; sc.teken(); levelGehaald(2); return; }
       sc.teken();

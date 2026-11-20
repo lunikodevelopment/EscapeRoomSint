@@ -33,6 +33,20 @@ for (const id of ['O', 'L1', 'L2']) { const [rr, cc, rot] = l3.oplossing[id]; ze
 ok(LOGIC.l3ZakVol(zak), 'zak helemaal vol');
 const verwacht = { O: [[1,0],[1,1],[2,0],[2,1]], L1: [[3,0],[3,1],[3,2],[2,2]], L2: [[1,2],[1,3],[2,3],[3,3]] };
 for (const id in verwacht) ok(verwacht[id].every(([a, b]) => zak[a][b] === id), `${id} ligt precies zoals in de opdracht`);
+// Aantikken op het bovenste linkerblokje van het pakje moet dezelfde plaatsing geven als de oplossing.
+{
+  const zak2 = [0, 1, 2, 3].map(() => [null, null, null, null]);
+  for (let i = 0; i < 4; i++) zak2[0][i] = 'I';
+  for (const id of ['O', 'L1', 'L2']) {
+    const [rr, cc, rot] = l3.oplossing[id]; const st = l3.stukken.find(x => x.id === id);
+    const v = LOGIC.vorm(st, rot);
+    const [tr, tc] = [rr + v[0][0], cc + v[0][1]]; // het vakje dat de speler aantikt
+    const [or, oc] = LOGIC.l3Origin(v, tr, tc);
+    ok(or === rr && oc === cc && !!LOGIC.l3Plaats(zak2, v, or, oc), `${id}: tik op rij ${tr + 1} kolom ${tc + 1} (bovenste linkerblokje) plaatst hem goed`);
+    for (const [a, b] of LOGIC.l3Plaats(zak2, v, or, oc)) zak2[a][b] = id;
+  }
+  ok(LOGIC.l3ZakVol(zak2), 'zak vol via aantik-methode');
+}
 ok(JSON.stringify(LOGIC.vorm(l3.stukken[2], 4)) === JSON.stringify(LOGIC.vorm(l3.stukken[2], 0)), '4× draaien = origineel');
 
 console.log('Level 4 – Pietenritme');
