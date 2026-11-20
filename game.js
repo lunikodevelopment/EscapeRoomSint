@@ -145,7 +145,7 @@ const CONFIG = {
       // oplossing: [rij, kolom] van de linkerbovenhoek, draaiing 0
       oplossing: { O: [1, 0, 0], L1: [2, 0, 0], L2: [1, 2, 0] },
       hints: ['Begin met het lastigste pakje.', 'Het boekenpakket hoort in een hoek.', 'Kijk, ik leg er eentje goed voor je.'],
-      teksten: { knopDraai: 'DRAAI', veegFout: 'Veeg precies over de vakjes die het pakje vult, zonder gaten of extra vakjes.', past: 'Dat past niet. Probeer een ander vakje of DRAAI.', kies: 'Tik eerst een pakje onder de zak.' },
+      teksten: { knopDraai: 'DRAAI', veegFout: 'Dat past niet. Veeg over de vakjes die het pakje vult, en laat daarna los.', past: 'Dat past niet. Probeer een ander vakje of DRAAI.', kies: 'Tik eerst een pakje onder de zak.' },
       beloning: ['De zak is dicht, met een gouden strik! Sint is zo blij dat hij een dansje doet. Hier is je ZAK.']
     },
     {
@@ -296,14 +296,25 @@ const LOGIC = {
     }
     return uit;
   },
-  // Veegplaatsen: de geveegde vakjes ([rij, kolom]-lijst) moeten precies de vorm van het pakje zijn,
-  // in een van de vier draaiingen. Geeft { rot, r, c } (c/r = oorsprong) of null.
-  l3VeegMatch(stuk, cellen) {
-    const sleutel = (cs) => LOGIC.normaliseer(cs).map(x => x.join(',')).join(';');
-    const doel = sleutel(cellen);
-    const r0 = Math.min(...cellen.map(x => x[0])), c0 = Math.min(...cellen.map(x => x[1]));
-    for (let rot = 0; rot < 4; rot++) if (sleutel(LOGIC.vorm(stuk, rot)) === doel) return { rot, r: r0, c: c0 };
-    return null;
+  // Veegplaatsen: zoek de plek (en draaiing) in de zak die het best past bij de geveegde vakjes
+  // ([rij, kolom]-lijst). Een vinger is dik, dus één vakje te veel of te weinig is toegestaan.
+  // Geeft { rot, r, c } (r/c = oorsprong van het pakje) of null.
+  l3VeegBeste(stuk, zak, geveegd) {
+    const sleutel = (r, c) => r + ',' + c;
+    const veeg = new Set(geveegd.map(([r, c]) => sleutel(r, c)));
+    let beste = null, besteScore = -Infinity;
+    for (let rot = 0; rot < 4; rot++) {
+      const vorm = LOGIC.vorm(stuk, rot), n = vorm.length;
+      for (let r = -3; r <= 3; r++) for (let c = -3; c <= 3; c++) {
+        const abs = LOGIC.l3Plaats(zak, vorm, r, c); if (!abs) continue;
+        const overlap = abs.filter(([a, b]) => veeg.has(sleutel(a, b))).length;
+        const extra = veeg.size - overlap, mist = n - overlap;
+        if (extra > 1 || mist > 1 || overlap < 2) continue;
+        const score = overlap * 3 - extra * 2 - mist;
+        if (score > besteScore) { besteScore = score; beste = { rot, r, c }; }
+      }
+    }
+    return beste;
   },
   l3ZakVol(zak) { return zak.every(rij => rij.every(Boolean)); },
 
@@ -1123,34 +1134,49 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     // Plaatsen door te vegen over de vakjes die het pakje gaat vullen (draaiing wordt vanzelf herkend).
     function koppelVeeg(zakEl) {
       let veeg = null;
-      const celBij = (x, y) => { const el = document.elementFromPoint(x, y); const v = el && el.closest ? el.closest('.zak-vak') : null; return v && zakEl.contains(v) ? v : null; };
+      const celBij = (x, y, midden) => {
+        const el = document.elementFromPoint(x, y); const v = el && el.closest ? el.closest('.zak-vak') : null;
+        if (!v || !zakEl.contains(v)) return null;
+        if (midden) { const b = v.getBoundingClientRect(); if (Math.abs(x - (b.left + b.width / 2)) > b.width * 0.34 || Math.abs(y - (b.top + b.height / 2)) > b.height * 0.34) return null; }
+        return v;
+      };
       const voegToe = (v) => { const k = v.dataset.rc; if (!veeg.set.has(k)) { veeg.set.set(k, [Number(k[0]), Number(k[1])]); v.classList.add('swipe'); GELUID.tik(); } };
-      zakEl.addEventListener('pointerdown', (e) => {
-        if (!sc.gekozen || sc.klaar || sc.bezig) return;
-        const v = celBij(e.clientX, e.clientY); if (!v) return;
-        veeg = { set: new Map(), x: e.clientX, y: e.clientY }; voegToe(v);
-      });
-      zakEl.addEventListener('pointermove', (e) => {
+      const begin = (x, y) => {
+        if (!sc.gekozen || sc.klaar || sc.bezig) return false;
+        const v = celBij(x, y); if (!v) return false;
+        veeg = { set: new Map(), x, y, start: v.dataset.rc }; voegToe(v);
+        return true;
+      };
+      const beweeg = (x, y) => {
         if (!veeg) return;
-        const dx = e.clientX - veeg.x, dy = e.clientY - veeg.y, n = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 6));
-        for (let i = 1; i <= n; i++) { const v = celBij(veeg.x + dx * i / n, veeg.y + dy * i / n); if (v) voegToe(v); }
-        veeg.x = e.clientX; veeg.y = e.clientY;
-      });
-      const klaar = (e) => {
+        const dx = x - veeg.x, dy = y - veeg.y, n = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 6));
+        for (let i = 1; i <= n; i++) { const v = celBij(veeg.x + dx * i / n, veeg.y + dy * i / n, true); if (v) voegToe(v); }
+        veeg.x = x; veeg.y = y;
+      };
+      const einde = (afgebroken, alsTik) => {
         if (!veeg) return;
-        const cellen = [...veeg.set.values()]; veeg = null;
+        const cellen = [...veeg.set.values()], start = veeg.start; veeg = null;
         zakEl.querySelectorAll('.swipe').forEach(v => v.classList.remove('swipe'));
-        if (cellen.length < 2 || e.type === 'pointercancel') return; // één vakje = gewone tik
-        sc.negeerKlik = true; setTimeout(() => { sc.negeerKlik = false; }, 80);
+        if (afgebroken) return;
+        if (cellen.length < 2) { if (alsTik) tikVak(Number(start[0]), Number(start[1])); return; } // één vakje = gewone tik
+        sc.negeerKlik = true; setTimeout(() => { sc.negeerKlik = false; }, 400);
         if (!sc.gekozen || sc.klaar || sc.bezig) return;
-        const m = LOGIC.l3VeegMatch(stuk(sc.gekozen), cellen);
+        const m = LOGIC.l3VeegBeste(stuk(sc.gekozen), sc.zak, cellen);
         if (!m) { foutje(tx.veegFout); return; }
-        const oud = sc.draaiing[sc.gekozen]; sc.draaiing[sc.gekozen] = m.rot;
-        if (!plaats(sc.gekozen, m.r, m.c)) { sc.draaiing[sc.gekozen] = oud; foutje(tx.past); sc.teken(); return; }
+        sc.draaiing[sc.gekozen] = m.rot;
+        plaats(sc.gekozen, m.r, m.c);
         afronden();
       };
-      zakEl.addEventListener('pointerup', klaar);
-      zakEl.addEventListener('pointercancel', klaar);
+      // Muis (pointer events)
+      zakEl.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse') begin(e.clientX, e.clientY); });
+      zakEl.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse') beweeg(e.clientX, e.clientY); });
+      zakEl.addEventListener('pointerup', (e) => { if (e.pointerType === 'mouse') einde(false, false); });
+      zakEl.addEventListener('pointercancel', (e) => { if (e.pointerType === 'mouse') einde(true, false); });
+      // Aanraking (touch events: werkt overal, ook op iOS); scrollen is uit zodra een pakje gekozen is.
+      zakEl.addEventListener('touchstart', (e) => { const t = e.touches[0]; if (t && begin(t.clientX, t.clientY)) e.preventDefault(); }, { passive: false });
+      zakEl.addEventListener('touchmove', (e) => { if (!veeg) return; e.preventDefault(); const t = e.touches[0]; if (t) beweeg(t.clientX, t.clientY); }, { passive: false });
+      zakEl.addEventListener('touchend', (e) => { if (veeg) { e.preventDefault(); einde(false, true); } }, { passive: false });
+      zakEl.addEventListener('touchcancel', () => einde(true, false));
     }
     function tikVak(r, c) {
       if (sc.negeerKlik || sc.klaar || sc.bezig) return;
